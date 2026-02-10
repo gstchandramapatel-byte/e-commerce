@@ -1,14 +1,13 @@
 "use client";
 
-import { useRouter} from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function Login() {
-
-    const handleSubmit = (e) => {
-      e.preventDefault();
-      console.log("Login attempt");
-    };
+export default function AdminLogin() {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log("Login attempt");
+  };
 
   return (
     <>
@@ -56,25 +55,27 @@ export default function Login() {
                 <input type="checkbox" className="mr-2" />
                 <span className="text-sm text-gray-600">Remember me</span>
               </label>
-              <a href="/forgotpassword" className="text-sm text-blue-600 hover:underline">
+              <a
+                href="/forgotpassword"
+                className="text-sm text-blue-600 hover:underline"
+              >
                 Forgot Password?
               </a>
             </div>
 
             <button
               type="submit"
-              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition duration-200" style={{ cursor: "pointer"}}
+              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition duration-200"
+              style={{ cursor: "pointer" }}
             >
-              Login
+              <a
+                href="/admindashbord"
+                className="text-blue-600 hover:underline" style={{ width: "100%", color: "white"}}
+              >
+                Login
+              </a>
             </button>
           </form>
-
-          <p className="text-center text-sm text-gray-600 mt-4">
-            Account nahi hai?{" "}
-            <a href="/signup" className="text-blue-600 hover:underline">
-              Sign up
-            </a>
-          </p>
         </div>
       </div>
     </>
