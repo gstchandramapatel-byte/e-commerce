@@ -1,42 +1,102 @@
+// src/app/(admin)/admindashboard/page.js
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../../../context/AuthContext";
+import { getAllUsers, deleteUser } from "../../lib/api";
 
 export default function AdminDashboard() {
+  const router = useRouter();
+  const { user, logoutUser, loading: authLoading } = useAuth();
+  const [allUsers, setAllUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    if (authLoading) return;
+
+    if (!user) {
+      console.log("No user found, redirecting to login...");
+      router.push("/login");
+      return;
+    }
+
+    console.log("User authenticated:", user);
+    fetchUsers();
+  }, [mounted, authLoading, user]);
+
+  const fetchUsers = async () => {
+    try {
+      console.log("Fetching users...");
+      const response = await getAllUsers();
+      if (response.success) {
+        console.log("Users fetched:", response.data.length);
+        setAllUsers(response.data);
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId, userEmail) => {
+    if (
+      confirm(
+        `Are you sure you want to delete this user?\n\nEmail: ${userEmail}`,
+      )
+    ) {
+      try {
+        const response = await deleteUser(userId);
+        if (response.success) {
+          alert("✅ User deleted successfully!");
+          fetchUsers(); // Refresh the list
+        }
+      } catch (error) {
+        alert("❌ Error: " + error.message);
+      }
+    }
+  };
+
+  const handleLogout = () => {
+    if (confirm("Are you sure you want to logout?")) {
+      logoutUser();
+      router.push("/login");
+    }
+  };
+
+  if (!mounted || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="text-xl text-gray-600">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  // Filter: Only show regular users (not admins)
+  const regularUsers = allUsers.filter((u) => u.role !== "admin");
+  const totalUsers = allUsers.length;
+  const adminUsers = allUsers.filter((u) => u.role === "admin").length;
+  const activeUsers = regularUsers.length;
 
   const stats = [
-    { title: "Total Users", value: "1,234", change: "+12%", icon: "👥" },
-    { title: "Revenue", value: "₹45,678", change: "+8%", icon: "💰" },
-    { title: "Orders", value: "567", change: "+23%", icon: "📦" },
-    { title: "Products", value: "89", change: "+5%", icon: "🛍️" },
-  ];
-
-  const recentOrders = [
-    {
-      id: "#1234",
-      customer: "Rahul Sharma",
-      amount: "₹1,250",
-      status: "Completed",
-    },
-    {
-      id: "#1235",
-      customer: "Priya Patel",
-      amount: "₹2,340",
-      status: "Pending",
-    },
-    {
-      id: "#1236",
-      customer: "Amit Kumar",
-      amount: "₹890",
-      status: "Processing",
-    },
-    {
-      id: "#1237",
-      customer: "Sneha Singh",
-      amount: "₹3,450",
-      status: "Completed",
-    },
+    { title: "Total Users", value: totalUsers, icon: "👥" },
+    { title: "Active Users", value: activeUsers, icon: "✅" },
+    { title: "Admin Users", value: adminUsers, icon: "👑" },
+    { title: "New Today", value: "0", icon: "🆕" },
   ];
 
   return (
@@ -71,22 +131,21 @@ export default function AdminDashboard() {
             <span className="text-xl">👥</span>
             <span className={`ml-3 ${!sidebarOpen && "hidden"}`}>Users</span>
           </a>
-          <a href="/order" className="flex items-center px-4 py-3 hover:bg-gray-700">
-            <span className="text-xl">📦</span>
-            <span className={`ml-3 ${!sidebarOpen && "hidden"}`}>Orders</span>
-          </a>
-          <a href="#" className="flex items-center px-4 py-3 hover:bg-gray-700">
-            <span className="text-xl">🛍️</span>
-            <span className={`ml-3 ${!sidebarOpen && "hidden"}`}>Products</span>
+          <a href="/" className="flex items-center px-4 py-3 hover:bg-gray-700">
+            <span className="text-xl">🏠</span>
+            <span className={`ml-3 ${!sidebarOpen && "hidden"}`}>Home</span>
           </a>
           <a href="#" className="flex items-center px-4 py-3 hover:bg-gray-700">
             <span className="text-xl">⚙️</span>
             <span className={`ml-3 ${!sidebarOpen && "hidden"}`}>Settings</span>
           </a>
-          <a href="/adminlogin" className="flex items-center px-4 py-3 hover:bg-gray-700">
+          <button
+            onClick={handleLogout}
+            className="flex items-center px-4 py-3 hover:bg-gray-700 w-full text-left"
+          >
             <span className="text-xl">🚪</span>
             <span className={`ml-3 ${!sidebarOpen && "hidden"}`}>Logout</span>
-          </a>
+          </button>
         </nav>
       </aside>
 
@@ -95,19 +154,25 @@ export default function AdminDashboard() {
         {/* Header */}
         <header className="bg-white shadow-sm">
           <div className="flex items-center justify-between px-8 py-4">
-            <h2 className="text-2xl font-semibold text-gray-800">Dashboard</h2>
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Dashboard
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Welcome back, {user?.name}!
+              </p>
+            </div>
             <div className="flex items-center gap-4">
-              <button className="relative">
-                <span className="text-2xl">🔔</span>
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  3
-                </span>
-              </button>
               <div className="flex items-center gap-2">
-                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                  A
+                <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
+                  {user?.name?.charAt(0).toUpperCase()}
                 </div>
-                <span className="font-medium">Admin</span>
+                <div>
+                  <div className="font-medium text-gray-800">{user?.name}</div>
+                  <div className="text-xs text-purple-600 font-semibold">
+                    👑 Admin
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -117,12 +182,12 @@ export default function AdminDashboard() {
         <div className="p-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {stats.map((stat, index) => (
-              <div key={index} className="bg-white p-6 rounded-lg shadow">
+              <div
+                key={index}
+                className="bg-white p-6 rounded-lg shadow hover:shadow-lg transition"
+              >
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-3xl">{stat.icon}</span>
-                  <span className="text-green-500 text-sm font-semibold">
-                    {stat.change}
-                  </span>
                 </div>
                 <h3 className="text-gray-500 text-sm">{stat.title}</h3>
                 <p className="text-2xl font-bold text-gray-800 mt-1">
@@ -132,60 +197,89 @@ export default function AdminDashboard() {
             ))}
           </div>
 
-          {/* Recent Orders Table */}
+          {/* Users Table - Only Regular Users */}
           <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-800">
-                Recent Orders
-              </h3>
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  All Users
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  Manage all registered users
+                </p>
+              </div>
+              <div className="text-sm text-gray-500">
+                Total:{" "}
+                <span className="font-semibold text-gray-800">
+                  {regularUsers.length}
+                </span>{" "}
+                users
+              </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Order ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Customer
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {recentOrders.map((order, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                        {order.id}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        {order.customer}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        {order.amount}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            order.status === "Completed"
-                              ? "bg-green-100 text-green-800"
-                              : order.status === "Pending"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {order.status}
-                        </span>
-                      </td>
+              {loading ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-600">Loading users...</div>
+                </div>
+              ) : regularUsers.length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="text-gray-600">No users found</div>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Email
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Role
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Created At
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {regularUsers.map((u) => (
+                      <tr key={u._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 text-sm font-medium text-gray-900">
+                          {u.name}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {u.email}
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                            👤 User
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700">
+                          {new Date(u.createdAt).toLocaleDateString("en-IN", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </td>
+                        <td className="px-6 py-4 text-sm">
+                          <button
+                            onClick={() => handleDeleteUser(u._id, u.email)}
+                            className="text-red-600 hover:text-red-800 font-medium hover:underline"
+                          >
+                            🗑️ Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
         </div>
